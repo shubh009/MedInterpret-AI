@@ -231,19 +231,26 @@ export default function BidirectionalTimeline() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div style={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      gap: '16px', 
+      height: 'calc(100vh - 170px)', // Fits perfectly within viewport alongside App Header/Footer
+      minHeight: '600px'
+    }}>
       
       {/* Top Header Control Bar */}
       <div 
         className="glass-panel" 
         style={{
-          padding: '16px 24px',
+          padding: '12px 20px',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           flexWrap: 'wrap',
-          gap: '16px',
-          background: 'rgba(255, 255, 255, 0.02)'
+          gap: '12px',
+          background: 'rgba(255, 255, 255, 0.02)',
+          flexShrink: 0
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
@@ -324,23 +331,30 @@ export default function BidirectionalTimeline() {
       </div>
 
       {/* Main Grid: Left is Timeline, Right is Playground (if toggled) */}
-      <div style={{ display: 'grid', gridTemplateColumns: showPlayground ? '1.2fr 0.8fr' : '1fr', gap: '24px', alignItems: 'start' }}>
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: showPlayground ? '1.2fr 0.8fr' : '1fr', 
+        gap: '24px', 
+        alignItems: 'stretch',
+        flex: 1,
+        minHeight: 0 
+      }}>
         
         {/* Timeline Desktop Container */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', height: '100%', minHeight: 0 }}>
           
           {/* Timeline Feed Panel */}
           <div 
             className="glass-panel" 
             style={{
               padding: '24px',
-              minHeight: '400px',
-              maxHeight: '500px',
+              flex: 1,
               overflowY: 'auto',
               display: 'flex',
               flexDirection: 'column',
               gap: '16px',
-              background: 'rgba(10, 13, 20, 0.6)'
+              background: 'rgba(10, 13, 20, 0.6)',
+              minHeight: 0
             }}
           >
             {timeline.length === 0 && !isLoading ? (
@@ -368,148 +382,191 @@ export default function BidirectionalTimeline() {
               padding: '12px 16px',
               borderRadius: '8px',
               textAlign: 'left',
-              fontSize: '14px'
+              fontSize: '14px',
+              flexShrink: 0
             }}>
               <strong>⚠️ Error Alert:</strong> {error}
             </div>
           )}
 
-          {/* Recording Control Desk (Side-by-Side Patient & Doctor consoles) */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }} className="main-grid">
+          {/* Recording Control Desk (Pill-shaped compact WhatsApp/Gemini style input consoles) */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', flexShrink: 0, padding: '8px 0' }} className="main-grid">
             
             {/* Patient Console */}
-            <div 
-              className="glass-panel" 
-              style={{
-                padding: '20px',
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 8px' }}>
+                <span style={{ fontSize: '12px', fontWeight: '600', color: '#06b6d4', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Patient Console</span>
+                {activeSpeaker === 'patient' && <span style={{ fontSize: '11px', color: '#ef4444', animation: 'pulse 1.5s infinite' }}>🎙️ Listening...</span>}
+              </div>
+              
+              <div style={{
                 display: 'flex',
-                flexDirection: 'column',
-                gap: '14px',
-                borderTop: '3px solid #06b6d4',
-                background: activeSpeaker === 'patient' ? 'rgba(6, 182, 212, 0.02)' : 'rgba(255, 255, 255, 0.01)'
+                alignItems: 'center',
+                gap: '8px',
+                background: 'rgba(255, 255, 255, 0.03)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '24px',
+                padding: '6px 12px',
+                transition: 'all 0.2s'
               }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '14px', fontWeight: '600', color: '#06b6d4', textTransform: 'uppercase' }}>Patient Console</span>
-                {activeSpeaker === 'patient' && <span style={{ fontSize: '12px', color: '#ef4444', animation: 'pulse 1.5s infinite' }}>🎙️ Listening...</span>}
-              </div>
-
-              {/* Mic Area */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '10px 0' }}>
-                <MicButton
-                  isRecording={isRecording && activeSpeaker === 'patient'}
-                  onToggle={() => startRecording('patient')}
+              onFocusCapture={(e) => e.currentTarget.style.borderColor = '#06b6d4'}
+              onBlurCapture={(e) => e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)'}
+              >
+                {/* Compact Mic Button */}
+                <button
+                  onClick={() => startRecording('patient')}
                   disabled={isLoading || (isRecording && activeSpeaker !== 'patient')}
-                />
-              </div>
+                  title="Toggle Microphone"
+                  style={{
+                    background: isRecording && activeSpeaker === 'patient' ? '#ef4444' : 'rgba(255, 255, 255, 0.05)',
+                    border: 'none',
+                    borderRadius: '50%',
+                    width: '32px',
+                    height: '32px',
+                    cursor: (isLoading || (isRecording && activeSpeaker !== 'patient')) ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'white',
+                    fontSize: '14px',
+                    transition: 'all 0.2s',
+                    flexShrink: 0
+                  }}
+                >
+                  🎙️
+                </button>
 
-              {/* Text Input */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <textarea
-                  placeholder="Patient speech transcript will appear here. Edit directly if needed..."
+                {/* Input Text Box */}
+                <input
+                  type="text"
+                  placeholder={`Speak or type in ${PATIENT_LANGUAGES.find(l => l.code === patientLang).name}...`}
                   value={patientTranscript}
                   onChange={(e) => setPatientTranscript(e.target.value)}
                   disabled={isLoading || (isRecording && activeSpeaker === 'patient')}
                   style={{
-                    width: '100%',
-                    height: '80px',
-                    background: 'rgba(0, 0, 0, 0.2)',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
-                    borderRadius: '6px',
-                    padding: '8px 12px',
+                    flex: 1,
+                    background: 'transparent',
+                    border: 'none',
+                    outline: 'none',
                     color: '#f1f5f9',
-                    fontSize: '15px',
-                    resize: 'none',
-                    outline: 'none'
+                    fontSize: '14px',
+                    padding: '4px 0'
                   }}
                 />
-                
+
+                {/* Send Button */}
                 {patientTranscript && !isRecording && (
                   <button
                     onClick={() => submitPatientSpeech()}
                     disabled={isLoading}
                     style={{
-                      background: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)',
-                      color: 'white',
+                      background: '#06b6d4',
                       border: 'none',
-                      padding: '8px',
-                      borderRadius: '6px',
+                      borderRadius: '50%',
+                      width: '32px',
+                      height: '32px',
                       cursor: 'pointer',
-                      fontWeight: '600',
-                      fontSize: '13px',
-                      transition: 'all 0.2s'
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'white',
+                      fontWeight: 'bold',
+                      fontSize: '14px',
+                      flexShrink: 0,
+                      boxShadow: '0 2px 8px rgba(6, 182, 212, 0.3)'
                     }}
                   >
-                    Send to Doctor ➔
+                    ➔
                   </button>
                 )}
               </div>
             </div>
 
             {/* Doctor Console */}
-            <div 
-              className="glass-panel" 
-              style={{
-                padding: '20px',
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 8px' }}>
+                <span style={{ fontSize: '12px', fontWeight: '600', color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Doctor Console</span>
+                {activeSpeaker === 'doctor' && <span style={{ fontSize: '11px', color: '#ef4444', animation: 'pulse 1.5s infinite' }}>🎙️ Listening...</span>}
+              </div>
+
+              <div style={{
                 display: 'flex',
-                flexDirection: 'column',
-                gap: '14px',
-                borderTop: '3px solid #10b981',
-                background: activeSpeaker === 'doctor' ? 'rgba(16, 185, 129, 0.02)' : 'rgba(255, 255, 255, 0.01)'
+                alignItems: 'center',
+                gap: '8px',
+                background: 'rgba(255, 255, 255, 0.03)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '24px',
+                padding: '6px 12px',
+                transition: 'all 0.2s'
               }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '14px', fontWeight: '600', color: '#10b981', textTransform: 'uppercase' }}>Doctor Console</span>
-                {activeSpeaker === 'doctor' && <span style={{ fontSize: '12px', color: '#ef4444', animation: 'pulse 1.5s infinite' }}>🎙️ Listening...</span>}
-              </div>
-
-              {/* Mic Area */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '10px 0' }}>
-                <MicButton
-                  isRecording={isRecording && activeSpeaker === 'doctor'}
-                  onToggle={() => startRecording('doctor')}
+              onFocusCapture={(e) => e.currentTarget.style.borderColor = '#10b981'}
+              onBlurCapture={(e) => e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)'}
+              >
+                {/* Compact Mic Button */}
+                <button
+                  onClick={() => startRecording('doctor')}
                   disabled={isLoading || (isRecording && activeSpeaker !== 'doctor')}
-                />
-              </div>
+                  title="Toggle Microphone"
+                  style={{
+                    background: isRecording && activeSpeaker === 'doctor' ? '#ef4444' : 'rgba(255, 255, 255, 0.05)',
+                    border: 'none',
+                    borderRadius: '50%',
+                    width: '32px',
+                    height: '32px',
+                    cursor: (isLoading || (isRecording && activeSpeaker !== 'doctor')) ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'white',
+                    fontSize: '14px',
+                    transition: 'all 0.2s',
+                    flexShrink: 0
+                  }}
+                >
+                  🎙️
+                </button>
 
-              {/* Text Input */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <textarea
-                  placeholder="Doctor English advice transcript will appear here. Edit directly if needed..."
+                {/* Input Text Box */}
+                <input
+                  type="text"
+                  placeholder="Speak or type clinical instructions in English..."
                   value={doctorTranscript}
                   onChange={(e) => setDoctorTranscript(e.target.value)}
                   disabled={isLoading || (isRecording && activeSpeaker === 'doctor')}
                   style={{
-                    width: '100%',
-                    height: '80px',
-                    background: 'rgba(0, 0, 0, 0.2)',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
-                    borderRadius: '6px',
-                    padding: '8px 12px',
+                    flex: 1,
+                    background: 'transparent',
+                    border: 'none',
+                    outline: 'none',
                     color: '#f1f5f9',
-                    fontSize: '15px',
-                    resize: 'none',
-                    outline: 'none'
+                    fontSize: '14px',
+                    padding: '4px 0'
                   }}
                 />
-                
+
+                {/* Send Button */}
                 {doctorTranscript && !isRecording && (
                   <button
                     onClick={submitDoctorSpeech}
                     disabled={isLoading}
                     style={{
-                      background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                      color: 'white',
+                      background: '#10b981',
                       border: 'none',
-                      padding: '8px',
-                      borderRadius: '6px',
+                      borderRadius: '50%',
+                      width: '32px',
+                      height: '32px',
                       cursor: 'pointer',
-                      fontWeight: '600',
-                      fontSize: '13px',
-                      transition: 'all 0.2s'
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'white',
+                      fontWeight: 'bold',
+                      fontSize: '14px',
+                      flexShrink: 0,
+                      boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)'
                     }}
                   >
-                    Send to Patient ➔
+                    ➔
                   </button>
                 )}
               </div>
@@ -521,7 +578,13 @@ export default function BidirectionalTimeline() {
 
         {/* Dynamic Testing Playground Sidebar */}
         {showPlayground && (
-          <div style={{ animation: 'slideIn 0.3s ease-out forwards' }}>
+          <div style={{ 
+            height: '100%', 
+            overflowY: 'auto', 
+            animation: 'slideIn 0.3s ease-out forwards',
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
             <TestingPlayground 
               onSimulateText={handleSimulateText} 
               onSetTranscript={handleSetTranscript}
