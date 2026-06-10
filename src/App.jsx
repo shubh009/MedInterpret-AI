@@ -4,10 +4,14 @@ import ResultCard from './components/ResultCard';
 import LoadingState from './components/LoadingState';
 import TestingPlayground from './components/TestingPlayground';
 import BidirectionalTimeline from './components/BidirectionalTimeline';
+import LoginScreen from './components/LoginScreen';
 import { createSpeechRecognition } from './services/speechService';
 import { interpretPatientSpeech } from './services/openrouterService';
 
 export default function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    return localStorage.getItem('isLoggedIn') === 'true';
+  });
   const [currentView, setCurrentView] = useState('simple'); // 'simple' | 'bidirectional'
   const [transcript, setTranscript] = useState('');
   const [isRecording, setIsRecording] = useState(false);
@@ -112,6 +116,27 @@ export default function App() {
     setRecogStatus('Idle');
   };
 
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    localStorage.removeItem('isLoggedIn');
+  };
+
+  // Auth Guard
+  if (!isLoggedIn) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', minHeight: '90vh' }}>
+        <LoginScreen onLoginSuccess={() => { setIsLoggedIn(true); localStorage.setItem('isLoggedIn', 'true'); }} />
+        
+        {/* Footer / Medical Disclaimer */}
+        <footer style={{ marginTop: 'auto', paddingTop: '40px', borderTop: '1px solid rgba(255, 255, 255, 0.08)', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
+            <strong>🔒 Disclaimer:</strong> This application is a clinical communication prototype tool. It does not provide medical diagnoses, treatment recommendations, or replace professional medical consulting.
+          </p>
+        </footer>
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '30px', padding: '10px 0' }}>
       
@@ -130,26 +155,47 @@ export default function App() {
           </p>
         </div>
         
-        {/* Reset button (Only shown in simple view and active states) */}
-        {currentView === 'simple' && (transcript || result || error) && (
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          {/* Reset button (Only shown in simple view and active states) */}
+          {currentView === 'simple' && (transcript || result || error) && (
+            <button 
+              onClick={handleClear}
+              style={{
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                color: 'var(--text-main)',
+                padding: '8px 16px',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                transition: 'all 0.2s'
+              }}
+              onMouseOver={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.1)'}
+              onMouseOut={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.05)'}
+            >
+              Clear Screen
+            </button>
+          )}
+
+          {/* Logout button */}
           <button 
-            onClick={handleClear}
+            onClick={handleLogout}
             style={{
-              background: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              color: 'var(--text-main)',
+              background: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid rgba(239, 68, 68, 0.25)',
+              color: '#f87171',
               padding: '8px 16px',
               borderRadius: '8px',
               cursor: 'pointer',
               fontSize: '14px',
               transition: 'all 0.2s'
             }}
-            onMouseOver={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.1)'}
-            onMouseOut={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.05)'}
+            onMouseOver={(e) => e.target.style.background = 'rgba(239, 68, 68, 0.2)'}
+            onMouseOut={(e) => e.target.style.background = 'rgba(239, 68, 68, 0.1)'}
           >
-            Clear Screen
+            Logout 🚪
           </button>
-        )}
+        </div>
       </header>
 
       {/* View Tabs Selector */}
