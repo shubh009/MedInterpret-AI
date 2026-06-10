@@ -12,7 +12,8 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     return localStorage.getItem('isLoggedIn') === 'true';
   });
-  const [currentView, setCurrentView] = useState('simple'); // 'simple' | 'bidirectional'
+  // ROUTE CONTROL: Change to 'simple' to load the Single-Way Interpreter route for testing
+  const [currentView, setCurrentView] = useState('bidirectional'); 
   const [transcript, setTranscript] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -198,50 +199,11 @@ export default function App() {
         </div>
       </header>
 
-      {/* View Tabs Selector */}
-      <div 
-        style={{ 
-          display: 'flex', 
-          gap: '12px', 
-          borderBottom: '1px solid rgba(255, 255, 255, 0.08)', 
-          paddingBottom: '1px' 
-        }}
-      >
-        <button
-          onClick={() => setCurrentView('simple')}
-          style={{
-            background: currentView === 'simple' ? 'rgba(6, 182, 212, 0.08)' : 'transparent',
-            border: 'none',
-            borderBottom: currentView === 'simple' ? '3px solid #06b6d4' : '3px solid transparent',
-            color: currentView === 'simple' ? '#22d3ee' : 'var(--text-muted)',
-            padding: '10px 20px',
-            fontSize: '14px',
-            fontWeight: '600',
-            cursor: 'pointer',
-            transition: 'all 0.2s',
-            borderRadius: '6px 6px 0 0'
-          }}
-        >
-          🔀 Single-Way Interpreter
-        </button>
-        <button
-          onClick={() => setCurrentView('bidirectional')}
-          style={{
-            background: currentView === 'bidirectional' ? 'rgba(16, 185, 129, 0.08)' : 'transparent',
-            border: 'none',
-            borderBottom: currentView === 'bidirectional' ? '3px solid #10b981' : '3px solid transparent',
-            color: currentView === 'bidirectional' ? '#34d399' : 'var(--text-muted)',
-            padding: '10px 20px',
-            fontSize: '14px',
-            fontWeight: '600',
-            cursor: 'pointer',
-            transition: 'all 0.2s',
-            borderRadius: '6px 6px 0 0'
-          }}
-        >
-          🔄 Bidirectional Consultation Timeline
-        </button>
-      </div>
+      {/* 
+        ROUTE SELECTOR (HIDDEN FOR DEMO):
+        By default, the app displays the Bidirectional Consultation Timeline screen.
+        To view the Single-Way Interpreter route, change currentView state (line 15) to 'simple'.
+      */}
 
       {currentView === 'simple' ? (
         /* Main Grid Layout - Simple View */
