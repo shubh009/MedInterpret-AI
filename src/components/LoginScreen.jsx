@@ -169,23 +169,6 @@ export default function LoginScreen({ onLoginSuccess }) {
           </button>
         </form>
 
-        {/* Demo Help Box */}
-        <div 
-          style={{
-            background: 'rgba(255, 255, 255, 0.02)',
-            border: '1px solid rgba(255, 255, 255, 0.05)',
-            padding: '12px 14px',
-            borderRadius: '6px',
-            fontSize: '12px',
-            color: 'var(--text-muted)',
-            textAlign: 'left'
-          }}
-        >
-          <span style={{ color: 'var(--color-secondary)', fontWeight: '600', display: 'block', marginBottom: '4px' }}>Demo Credentials:</span>
-          <div>ID: <code style={{ color: '#e2e8f0', background: 'rgba(255,255,255,0.05)', padding: '2px 4px', borderRadius: '3px' }}>{DEMO_EMAIL}</code></div>
-          <div style={{ marginTop: '2px' }}>Pass: <code style={{ color: '#e2e8f0', background: 'rgba(255,255,255,0.05)', padding: '2px 4px', borderRadius: '3px' }}>{DEMO_PASSWORD}</code></div>
-        </div>
-
       </div>
     </div>
   );
