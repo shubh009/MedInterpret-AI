@@ -17,7 +17,6 @@ export default function TimelineEntry({ entry }) {
   const { sender, originalText, translatedText, symptoms, languageName, langCode, autoPlay } = entry;
   
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [audioPlayer, setAudioPlayer] = useState(null);
   const isSpeakingRef = useRef(false);
 
   // Sync isSpeaking with ref
@@ -25,44 +24,22 @@ export default function TimelineEntry({ entry }) {
     isSpeakingRef.current = isSpeaking;
   }, [isSpeaking]);
 
-  // Handle autoplay if requested (for doctor turns speaking to patient)
-  useEffect(() => {
-    if (autoPlay && sender === 'doctor' && translatedText) {
-      // Small timeout to allow UI transition to settle before speaking
-      const t = setTimeout(() => {
-        handleSpeak();
-      }, 500);
-      return () => clearTimeout(t);
-    }
-  }, [autoPlay, translatedText]);
+  // AutoPlay removed — user clicks Play Audio button manually
+  // This avoids stuck "Stop" buttons when browser blocks autoplay or TTS proxy fails
 
   // Clean up speech on unmount
   useEffect(() => {
     return () => {
       isSpeakingRef.current = false;
-      if (audioPlayer) {
-        try {
-          audioPlayer.pause();
-        } catch (e) {}
-      }
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
       }
     };
-  }, [audioPlayer]);
+  }, []);
 
   const handleSpeak = () => {
     if (isSpeaking) {
       isSpeakingRef.current = false;
-      if (audioPlayer) {
-        try {
-          audioPlayer.pause();
-          audioPlayer.src = '';
-          audioPlayer.onended = null;
-          audioPlayer.onerror = null;
-        } catch (e) {}
-        setAudioPlayer(null);
-      }
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
       }
@@ -70,162 +47,80 @@ export default function TimelineEntry({ entry }) {
       return;
     }
 
+    if (!('speechSynthesis' in window)) return;
+
     // For doctor entries, speak the native translation to the patient.
     // For patient entries, speak the clinical English translation to the doctor.
     const textToSpeak = translatedText;
-    const speakLangCode = sender === 'doctor' ? langCode.split('-')[0] : 'en';
+    const speakLangCode = sender === 'doctor' ? langCode : 'en-US';
 
     console.log(`[TTS Timeline] Speaking: "${textToSpeak}" in ${speakLangCode}`);
 
-    if (speakLangCode === 'hi' || speakLangCode === 'mr' || speakLangCode === 'kn') {
-      playSequentialAudio(textToSpeak, speakLangCode);
-    } else {
-      speakNativeText(textToSpeak, sender === 'doctor' ? langCode : 'en-US');
-    }
-  };
-
-  const playSequentialAudio = (text, langCode) => {
-    const sentences = text.match(/[^.!?।;,:]+[.!?।;,:]?/g) || [text];
-    const chunks = sentences.map(s => s.trim()).filter(s => s.length > 0);
-
-    if (chunks.length === 0) {
-      setIsSpeaking(false);
-      return;
-    }
-
-    let currentIndex = 0;
-    isSpeakingRef.current = true;
-    setIsSpeaking(true);
-    let fallbackTriggered = false;
-
-    const playNextChunk = () => {
-      if (!isSpeakingRef.current) return;
-
-      if (currentIndex >= chunks.length) {
-        setIsSpeaking(false);
-        setAudioPlayer(null);
-        return;
-      }
-
-      const chunkText = chunks[currentIndex];
-
-      const triggerFallback = () => {
-        if (!isSpeakingRef.current) return;
-        if (fallbackTriggered) return;
-        fallbackTriggered = true;
-        speakNativeText(text, entry.langCode);
-      };
-
-      try {
-        const googleUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${langCode}&client=tw-ob&q=${encodeURIComponent(chunkText)}`;
-        const proxies = [
-          `https://corsproxy.io/?${encodeURIComponent(googleUrl)}`,
-          `https://api.allorigins.win/raw?url=${encodeURIComponent(googleUrl)}`
-        ];
-        
-        let proxyIndex = 0;
-        let attemptSettled = false;
-
-        const tryPlayWithProxy = () => {
-          if (!isSpeakingRef.current) return;
-
-          if (proxyIndex >= proxies.length) {
-            triggerFallback();
-            return;
-          }
-
-          const proxiedUrl = proxies[proxyIndex];
-          const player = document.createElement('audio');
-          player.setAttribute('referrerpolicy', 'no-referrer');
-          player.src = proxiedUrl;
-          setAudioPlayer(player);
-
-          player.onended = () => {
-            if (attemptSettled) return;
-            attemptSettled = true;
-            player.onended = null;
-            player.onerror = null;
-            currentIndex++;
-            playNextChunk();
-          };
-
-          player.onerror = (err) => {
-            if (attemptSettled) return;
-            attemptSettled = true;
-            player.onended = null;
-            player.onerror = null;
-            try { player.pause(); } catch (e) {}
-            proxyIndex++;
-            tryPlayWithProxy();
-          };
-
-          player.play().catch(err => {
-            if (attemptSettled) return;
-            attemptSettled = true;
-            player.onended = null;
-            player.onerror = null;
-            try { player.pause(); } catch (e) {}
-            proxyIndex++;
-            tryPlayWithProxy();
-          });
-        };
-
-        tryPlayWithProxy();
-      } catch (err) {
-        triggerFallback();
-      }
-    };
-
-    playNextChunk();
-  };
-
-  const speakNativeText = (text, lang) => {
-    if (!('speechSynthesis' in window)) return;
-
-    // Set speaking states immediately to prevent timeout race condition
-    isSpeakingRef.current = true;
-    setIsSpeaking(true);
-
+    // Stop any current synthesis
     window.speechSynthesis.cancel();
-    
-    let processedText = text;
-    let utteranceLang = lang;
+    isSpeakingRef.current = true;
+    setIsSpeaking(true);
 
-    const voices = window.speechSynthesis.getVoices();
-    let voice = voices.find(v => 
-      v.lang.toLowerCase() === lang.toLowerCase() || 
-      v.lang.toLowerCase().startsWith(lang.split('-')[0])
-    );
-
-    if (!voice && lang.startsWith('mr')) {
-      voice = voices.find(v => v.lang.toLowerCase().startsWith('hi'));
-      if (voice) utteranceLang = 'hi-IN';
-    }
-
-    if (!voice && lang.startsWith('kn')) {
-      voice = voices.find(v => v.lang.toLowerCase().startsWith('hi'));
-      if (voice) {
-        processedText = kannadaToDevanagari(text);
-        utteranceLang = 'hi-IN';
-      }
-    }
-
+    // Small timeout to give synthesis a clean start
     setTimeout(() => {
       if (!isSpeakingRef.current) return;
 
+      let processedText = textToSpeak;
+      let utteranceLang = speakLangCode;
+
+      // Find matching voice
+      const voices = window.speechSynthesis.getVoices();
+      let voice = voices.find(v => 
+        v.lang.toLowerCase() === speakLangCode.toLowerCase() || 
+        v.lang.toLowerCase().startsWith(speakLangCode.split('-')[0]) ||
+        v.name.toLowerCase().includes(speakLangCode.split('-')[0])
+      );
+
+      // Fallback: If Kannada voice not found, transliterate to Devanagari and use Hindi voice
+      if (!voice && speakLangCode.startsWith('kn')) {
+        console.log("[TTS Timeline] Kannada voice not found. Using Hindi fallback with Devanagari transliteration.");
+        voice = voices.find(v => 
+          v.lang.toLowerCase() === 'hi-in' || 
+          v.lang.toLowerCase().startsWith('hi') ||
+          v.name.toLowerCase().includes('hindi')
+        );
+        if (voice) {
+          processedText = kannadaToDevanagari(textToSpeak);
+          utteranceLang = 'hi-IN';
+        }
+      }
+
+      // Fallback: If Marathi voice not found, use Hindi voice
+      if (!voice && speakLangCode.startsWith('mr')) {
+        voice = voices.find(v => 
+          v.lang.toLowerCase() === 'hi-in' || 
+          v.lang.toLowerCase().startsWith('hi')
+        );
+        if (voice) utteranceLang = 'hi-IN';
+      }
+
       const utterance = new SpeechSynthesisUtterance(processedText);
       utterance.lang = utteranceLang;
-      if (voice) utterance.voice = voice;
+      if (voice) {
+        utterance.voice = voice;
+        console.log(`[TTS Timeline] Using voice: ${voice.name} (${utterance.lang})`);
+      }
 
+      // Store in window to prevent Chrome garbage collection bug
       window._activeUtterance = utterance;
 
       utterance.onstart = () => setIsSpeaking(true);
       utterance.onend = () => {
         setIsSpeaking(false);
+        isSpeakingRef.current = false;
         window._activeUtterance = null;
       };
       utterance.onerror = (e) => {
+        if (e.error !== 'interrupted') {
+          console.error("[TTS Timeline] Speech synthesis failed:", e);
+        }
         setIsSpeaking(false);
+        isSpeakingRef.current = false;
         window._activeUtterance = null;
       };
 
@@ -281,7 +176,7 @@ export default function TimelineEntry({ entry }) {
             transition: 'all 0.2s'
           }}
         >
-          <span>{isSpeaking ? '🛑 Stop' : '🔊 Play Audio'}</span>
+          <span>{isSpeaking ? '⏹️ Stop' : '🔊 Play Audio'}</span>
         </button>
       </div>
 

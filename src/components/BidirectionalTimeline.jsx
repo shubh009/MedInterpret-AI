@@ -57,13 +57,19 @@ export default function BidirectionalTimeline() {
 
     setRecogStatus(`Listening to ${langName}...`);
 
+    // Capture existing text so new speech gets appended after it
+    const existingText = speaker === 'patient' ? patientTranscript : doctorTranscript;
+    const prefix = existingText.trim() ? existingText.trim() + ' ' : '';
+
     try {
       const recognition = createSpeechRecognition({
+        lang: langCode,
+        silenceTimeout: 3000, // Auto-stop after 3 seconds of silence
         onResult: (text) => {
           if (speaker === 'patient') {
-            setPatientTranscript(text);
+            setPatientTranscript(prefix + text);
           } else {
-            setDoctorTranscript(text);
+            setDoctorTranscript(prefix + text);
           }
         },
         onEnd: () => {
@@ -80,46 +86,8 @@ export default function BidirectionalTimeline() {
       });
 
       if (recognition.supported) {
-        // Force the recognition language config
-        if (window.webkitSpeechRecognition || window.SpeechRecognition) {
-          const rawRecog = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-          rawRecog.lang = langCode;
-          rawRecog.continuous = true;
-          rawRecog.interimResults = true;
-          
-          rawRecog.onresult = (event) => {
-            let finalText = "";
-            for (let i = event.resultIndex; i < event.results.length; ++i) {
-              if (event.results[i].isFinal) {
-                finalText += event.results[i][0].transcript + " ";
-              }
-            }
-            if (finalText.trim()) {
-              if (speaker === 'patient') {
-                setPatientTranscript(finalText.trim());
-              } else {
-                setDoctorTranscript(finalText.trim());
-              }
-            }
-          };
-
-          rawRecog.onerror = (e) => {
-            setError(`Recognition error: ${e.error}`);
-            setIsRecording(false);
-            setActiveSpeaker(null);
-          };
-
-          rawRecog.onend = () => {
-            setIsRecording(false);
-            setActiveSpeaker(null);
-          };
-
-          recognitionRef.current = rawRecog;
-          rawRecog.start();
-        } else {
-          recognitionRef.current = recognition;
-          recognition.start();
-        }
+        recognitionRef.current = recognition;
+        recognition.start();
       } else {
         setError("Web Speech API is not supported in this browser. Please use Chrome.");
         setIsRecording(false);
@@ -389,7 +357,7 @@ export default function BidirectionalTimeline() {
             </div>
           )}
 
-          {/* Recording Control Desk (Pill-shaped compact WhatsApp/Gemini style input consoles) */}
+          {/* Recording Control Desk (WhatsApp style — textbox pill + mic outside on right) */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', flexShrink: 0, padding: '8px 0' }} className="main-grid">
             
             {/* Patient Console */}
@@ -399,86 +367,97 @@ export default function BidirectionalTimeline() {
                 {activeSpeaker === 'patient' && <span style={{ fontSize: '11px', color: '#ef4444', animation: 'pulse 1.5s infinite' }}>🎙️ Listening...</span>}
               </div>
               
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                background: 'rgba(255, 255, 255, 0.03)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                borderRadius: '24px',
-                padding: '6px 12px',
-                transition: 'all 0.2s'
-              }}
-              onFocusCapture={(e) => e.currentTarget.style.borderColor = '#06b6d4'}
-              onBlurCapture={(e) => e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)'}
-              >
-                {/* Compact Mic Button */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {/* Textbox Pill */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  flex: 1,
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  border: `1px solid ${activeSpeaker === 'patient' ? '#ef4444' : 'rgba(255, 255, 255, 0.08)'}`,
+                  borderRadius: '24px',
+                  padding: '6px 12px',
+                  transition: 'all 0.2s'
+                }}
+                onFocusCapture={(e) => e.currentTarget.style.borderColor = '#06b6d4'}
+                onBlurCapture={(e) => { if (activeSpeaker !== 'patient') e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)'; }}
+                >
+                  {/* Input Text Box */}
+                  <input
+                    type="text"
+                    placeholder={`Speak or type in ${PATIENT_LANGUAGES.find(l => l.code === patientLang).name}...`}
+                    value={patientTranscript}
+                    onChange={(e) => setPatientTranscript(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && patientTranscript && !isRecording && !isLoading) submitPatientSpeech(); }}
+                    disabled={isLoading || (isRecording && activeSpeaker === 'patient')}
+                    style={{
+                      flex: 1,
+                      background: 'transparent',
+                      border: 'none',
+                      outline: 'none',
+                      color: '#f1f5f9',
+                      fontSize: '14px',
+                      padding: '4px 0'
+                    }}
+                  />
+
+                  {/* Send Button (inside pill) */}
+                  {patientTranscript && !isRecording && (
+                    <button
+                      onClick={() => submitPatientSpeech()}
+                      disabled={isLoading}
+                      style={{
+                        background: '#06b6d4',
+                        border: 'none',
+                        borderRadius: '50%',
+                        width: '32px',
+                        height: '32px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'white',
+                        fontWeight: 'bold',
+                        fontSize: '14px',
+                        flexShrink: 0,
+                        boxShadow: '0 2px 8px rgba(6, 182, 212, 0.3)'
+                      }}
+                    >
+                      ➔
+                    </button>
+                  )}
+                </div>
+
+                {/* Mic Button (outside pill, right side — WhatsApp style) */}
                 <button
                   onClick={() => startRecording('patient')}
                   disabled={isLoading || (isRecording && activeSpeaker !== 'patient')}
-                  title="Toggle Microphone"
+                  title={isRecording && activeSpeaker === 'patient' ? 'Stop Recording' : 'Start Recording'}
                   style={{
-                    background: isRecording && activeSpeaker === 'patient' ? '#ef4444' : 'rgba(255, 255, 255, 0.05)',
+                    background: isRecording && activeSpeaker === 'patient' 
+                      ? '#ef4444' 
+                      : 'linear-gradient(135deg, #06b6d4 0%, #0d9488 100%)',
                     border: 'none',
                     borderRadius: '50%',
-                    width: '32px',
-                    height: '32px',
+                    width: '40px',
+                    height: '40px',
                     cursor: (isLoading || (isRecording && activeSpeaker !== 'patient')) ? 'not-allowed' : 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     color: 'white',
-                    fontSize: '14px',
+                    fontSize: '16px',
                     transition: 'all 0.2s',
-                    flexShrink: 0
+                    flexShrink: 0,
+                    boxShadow: isRecording && activeSpeaker === 'patient' 
+                      ? '0 0 16px rgba(239, 68, 68, 0.5)' 
+                      : '0 2px 10px rgba(6, 182, 212, 0.3)',
+                    animation: isRecording && activeSpeaker === 'patient' ? 'pulse-button 1.5s infinite alternate' : 'none'
                   }}
                 >
                   🎙️
                 </button>
-
-                {/* Input Text Box */}
-                <input
-                  type="text"
-                  placeholder={`Speak or type in ${PATIENT_LANGUAGES.find(l => l.code === patientLang).name}...`}
-                  value={patientTranscript}
-                  onChange={(e) => setPatientTranscript(e.target.value)}
-                  disabled={isLoading || (isRecording && activeSpeaker === 'patient')}
-                  style={{
-                    flex: 1,
-                    background: 'transparent',
-                    border: 'none',
-                    outline: 'none',
-                    color: '#f1f5f9',
-                    fontSize: '14px',
-                    padding: '4px 0'
-                  }}
-                />
-
-                {/* Send Button */}
-                {patientTranscript && !isRecording && (
-                  <button
-                    onClick={() => submitPatientSpeech()}
-                    disabled={isLoading}
-                    style={{
-                      background: '#06b6d4',
-                      border: 'none',
-                      borderRadius: '50%',
-                      width: '32px',
-                      height: '32px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: 'white',
-                      fontWeight: 'bold',
-                      fontSize: '14px',
-                      flexShrink: 0,
-                      boxShadow: '0 2px 8px rgba(6, 182, 212, 0.3)'
-                    }}
-                  >
-                    ➔
-                  </button>
-                )}
               </div>
             </div>
 
@@ -489,86 +468,97 @@ export default function BidirectionalTimeline() {
                 {activeSpeaker === 'doctor' && <span style={{ fontSize: '11px', color: '#ef4444', animation: 'pulse 1.5s infinite' }}>🎙️ Listening...</span>}
               </div>
 
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                background: 'rgba(255, 255, 255, 0.03)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                borderRadius: '24px',
-                padding: '6px 12px',
-                transition: 'all 0.2s'
-              }}
-              onFocusCapture={(e) => e.currentTarget.style.borderColor = '#10b981'}
-              onBlurCapture={(e) => e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)'}
-              >
-                {/* Compact Mic Button */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {/* Textbox Pill */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  flex: 1,
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  border: `1px solid ${activeSpeaker === 'doctor' ? '#ef4444' : 'rgba(255, 255, 255, 0.08)'}`,
+                  borderRadius: '24px',
+                  padding: '6px 12px',
+                  transition: 'all 0.2s'
+                }}
+                onFocusCapture={(e) => e.currentTarget.style.borderColor = '#10b981'}
+                onBlurCapture={(e) => { if (activeSpeaker !== 'doctor') e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)'; }}
+                >
+                  {/* Input Text Box */}
+                  <input
+                    type="text"
+                    placeholder="Speak or type clinical instructions in English..."
+                    value={doctorTranscript}
+                    onChange={(e) => setDoctorTranscript(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && doctorTranscript && !isRecording && !isLoading) submitDoctorSpeech(); }}
+                    disabled={isLoading || (isRecording && activeSpeaker === 'doctor')}
+                    style={{
+                      flex: 1,
+                      background: 'transparent',
+                      border: 'none',
+                      outline: 'none',
+                      color: '#f1f5f9',
+                      fontSize: '14px',
+                      padding: '4px 0'
+                    }}
+                  />
+
+                  {/* Send Button (inside pill) */}
+                  {doctorTranscript && !isRecording && (
+                    <button
+                      onClick={submitDoctorSpeech}
+                      disabled={isLoading}
+                      style={{
+                        background: '#10b981',
+                        border: 'none',
+                        borderRadius: '50%',
+                        width: '32px',
+                        height: '32px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'white',
+                        fontWeight: 'bold',
+                        fontSize: '14px',
+                        flexShrink: 0,
+                        boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)'
+                      }}
+                    >
+                      ➔
+                    </button>
+                  )}
+                </div>
+
+                {/* Mic Button (outside pill, right side — WhatsApp style) */}
                 <button
                   onClick={() => startRecording('doctor')}
                   disabled={isLoading || (isRecording && activeSpeaker !== 'doctor')}
-                  title="Toggle Microphone"
+                  title={isRecording && activeSpeaker === 'doctor' ? 'Stop Recording' : 'Start Recording'}
                   style={{
-                    background: isRecording && activeSpeaker === 'doctor' ? '#ef4444' : 'rgba(255, 255, 255, 0.05)',
+                    background: isRecording && activeSpeaker === 'doctor' 
+                      ? '#ef4444' 
+                      : 'linear-gradient(135deg, #10b981 0%, #0d9488 100%)',
                     border: 'none',
                     borderRadius: '50%',
-                    width: '32px',
-                    height: '32px',
+                    width: '40px',
+                    height: '40px',
                     cursor: (isLoading || (isRecording && activeSpeaker !== 'doctor')) ? 'not-allowed' : 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     color: 'white',
-                    fontSize: '14px',
+                    fontSize: '16px',
                     transition: 'all 0.2s',
-                    flexShrink: 0
+                    flexShrink: 0,
+                    boxShadow: isRecording && activeSpeaker === 'doctor' 
+                      ? '0 0 16px rgba(239, 68, 68, 0.5)' 
+                      : '0 2px 10px rgba(16, 185, 129, 0.3)',
+                    animation: isRecording && activeSpeaker === 'doctor' ? 'pulse-button 1.5s infinite alternate' : 'none'
                   }}
                 >
                   🎙️
                 </button>
-
-                {/* Input Text Box */}
-                <input
-                  type="text"
-                  placeholder="Speak or type clinical instructions in English..."
-                  value={doctorTranscript}
-                  onChange={(e) => setDoctorTranscript(e.target.value)}
-                  disabled={isLoading || (isRecording && activeSpeaker === 'doctor')}
-                  style={{
-                    flex: 1,
-                    background: 'transparent',
-                    border: 'none',
-                    outline: 'none',
-                    color: '#f1f5f9',
-                    fontSize: '14px',
-                    padding: '4px 0'
-                  }}
-                />
-
-                {/* Send Button */}
-                {doctorTranscript && !isRecording && (
-                  <button
-                    onClick={submitDoctorSpeech}
-                    disabled={isLoading}
-                    style={{
-                      background: '#10b981',
-                      border: 'none',
-                      borderRadius: '50%',
-                      width: '32px',
-                      height: '32px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: 'white',
-                      fontWeight: 'bold',
-                      fontSize: '14px',
-                      flexShrink: 0,
-                      boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)'
-                    }}
-                  >
-                    ➔
-                  </button>
-                )}
               </div>
             </div>
 
